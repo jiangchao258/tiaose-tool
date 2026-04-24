@@ -1,0 +1,335 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>油漆调色助手</title>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="data:application/manifest+json;base64,ewogICAgIm5hbWUiOiAi5rK55rKz6LCD6Imy5Yqp5omLIiwKICAgICJzaG9ydF9uYW1lIjogIuiwg+iJsiIsCiAgICAic3RhcnRfdXJsIjogIi4iLAogICAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMDAwMDAwIiwKICAgICJ0aGVtZV9jb2xvciI6ICIjMDA3YWZmIiwKICAgICJpY29ucyI6IFsKICAgICAgewogICAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQSE4yWnlCNGJXeHVjejBpYUhSMGNEb3ZMM2QzZHk1M015NXZjbWN2TWpBd01DOXpkbWNpSUhkcFpIUm9QU0l4TkNJZ2FHVnBaMmgwUFNJeE5DSWdkMmxrZEdnOUlqRTBJajQ4ZEdsMGJHVStQR2R0WVdsc0xtTnZiU0J6ZEhKdmEyVTlJazFoZEdWeVpXRXNJR05zYjJOcmN5MW1hV3hsUFNKaGNIQXRNaTR4TGpFZ01qRTJMakF1TUNBeExqRXVOQzB4TGpJdU5TSXZQanh6WTJoblkydHBaMk0rUEdOemFHZGphMmxuWXlCemVYTjBaVzA5SW1Ga2NtRnVjMXhwYzNRdWJtVm1JaTgrUEM5elkyaG5ZMnRwWjJNK1BDOTBhWFJzWlQ0PSIKICAgICAgfQogICAgXQogIH0=">
+
+  <meta name="theme-color" content="#007aff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="调色助手">
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000;
+      color: #fff;
+      font-family: sans-serif;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ===== 上半屏：目标色照片 ===== */
+    .target-panel {
+      flex: 1;
+      position: relative;
+      background: #111;
+      border-bottom: 2px solid #333;
+      overflow: hidden;
+    }
+    .target-panel canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .target-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 13px;
+      z-index: 5;
+    }
+
+    /* ===== 下半屏：实时摄像头 ===== */
+    .live-panel {
+      flex: 1;
+      position: relative;
+      background: #000;
+      overflow: hidden;
+    }
+    .live-panel video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 70px;
+      height: 70px;
+      border: 2px dashed rgba(255,255,255,0.7);
+      border-radius: 12px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .crosshair::after, .crosshair::before {
+      content: '';
+      position: absolute;
+      background: rgba(255,255,255,0.25);
+    }
+    .crosshair::after {
+      top: 50%; left: 0; width: 100%; height: 1px;
+    }
+    .crosshair::before {
+      left: 50%; top: 0; width: 1px; height: 100%;
+    }
+
+    /* 按钮行 */
+    .btn-row {
+      position: absolute;
+      bottom: 15px;
+      left: 15px;
+      right: 15px;
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+    }
+    .btn {
+      flex: 1;
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.5);
+      padding: 12px;
+      font-size: 15px;
+      border-radius: 25px;
+      backdrop-filter: blur(10px);
+      text-align: center;
+      cursor: pointer;
+    }
+    .btn:active { background: rgba(255,255,255,0.3); }
+    .btn.primary { background: #007aff; border: none; }
+
+    /* 底部固定进度条 */
+    .bottom-bars {
+      background: #1a1a1a;
+      padding: 10px 14px 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+      border-top: 1px solid #333;
+    }
+    .bar-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .bar-label {
+      width: 48px;
+      font-size: 12px;
+      text-align: right;
+      color: #aaa;
+    }
+    .bar-track {
+      flex: 1;
+      height: 14px;
+      background: #333;
+      border-radius: 7px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 7px;
+      transition: width 0.3s;
+    }
+    .bar-value {
+      width: 40px;
+      font-size: 12px;
+      font-weight: bold;
+      text-align: left;
+    }
+
+    .sim-fill { background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44); }
+    .cyan-fill { background: #00bcd4; }
+    .magenta-fill { background: #e91e63; }
+    .yellow-fill { background: #ffeb3b; }
+    .hidden-canvas { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- 上半屏：目标色 -->
+  <div class="target-panel">
+    <canvas id="targetCanvas"></canvas>
+    <div class="target-label">目标色</div>
+  </div>
+
+  <!-- 下半屏：实时取景 -->
+  <div class="live-panel">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="crosshair"></div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="btnLock">🎯 锁定目标色</button>
+      <button class="btn" id="btnCompare">🔄 比对当前色</button>
+    </div>
+  </div>
+
+  <!-- 底部固定进度条 -->
+  <div class="bottom-bars">
+    <div class="bar-item">
+      <span class="bar-label">相似度</span>
+      <div class="bar-track"><div class="bar-fill sim-fill" id="barSim" style="width:0%"></div></div>
+      <span class="bar-value" id="valSim">0%</span>
+    </div>
+    <div class="bar-item">
+      <span class="bar-label">需加青</span>
+      <div class="bar-track"><div class="bar-fill cyan-fill" id="barCyan" style="width:0%"></div></div>
+      <span class="bar-value" id="valCyan">0%</span>
+    </div>
+    <div class="bar-item">
+      <span class="bar-label">需加品红</span>
+      <div class="bar-track"><div class="bar-fill magenta-fill" id="barMagenta" style="width:0%"></div></div>
+      <span class="bar-value" id="valMagenta">0%</span>
+    </div>
+    <div class="bar-item">
+      <span class="bar-label">需加黄</span>
+      <div class="bar-track"><div class="bar-fill yellow-fill" id="barYellow" style="width:0%"></div></div>
+      <span class="bar-value" id="valYellow">0%</span>
+    </div>
+  </div>
+
+  <canvas id="sampleCanvas" class="hidden-canvas"></canvas>
+
+  <script>
+    // 注册 Service Worker（让 PWA 可离线使用）
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register("data:application/javascript;base64," +
+          btoa(`self.addEventListener('install', e => self.skipWaiting());
+                self.addEventListener('activate', e => clients.claim());
+                self.addEventListener('fetch', e => {});`));
+      });
+    }
+
+    const video = document.getElementById('video');
+    const sampleCanvas = document.getElementById('sampleCanvas');
+    const sampleCtx = sampleCanvas.getContext('2d');
+    const targetCanvas = document.getElementById('targetCanvas');
+    const targetCtx = targetCanvas.getContext('2d');
+    let targetRGB = null;
+    let currentRGB = null;
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        video.srcObject = stream;
+      } catch (e) {
+        alert('无法使用摄像头：' + e.message);
+      }
+    }
+    startCamera();
+
+    function sampleColorFromVideo() {
+      if (video.videoWidth === 0) return [0,0,0];
+      sampleCanvas.width = video.videoWidth;
+      sampleCanvas.height = video.videoHeight;
+      sampleCtx.drawImage(video, 0, 0);
+      const size = 50;
+      const cx = sampleCanvas.width / 2;
+      const cy = sampleCanvas.height / 2;
+      const img = sampleCtx.getImageData(cx - size/2, cy - size/2, size, size);
+      let r = 0, g = 0, b = 0;
+      const data = img.data;
+      for (let i = 0; i < data.length; i += 4) {
+        r += data[i]; g += data[i+1]; b += data[i+2];
+      }
+      const n = data.length / 4;
+      return [Math.round(r/n), Math.round(g/n), Math.round(b/n)];
+    }
+
+    function rgbToLab(r, g, b) {
+      let rr = r/255, gg = g/255, bb = b/255;
+      const gamma = c => c > 0.04045 ? Math.pow((c+0.055)/1.055, 2.4) : c/12.92;
+      rr = gamma(rr); gg = gamma(gg); bb = gamma(bb);
+      const x = (rr*0.4124+gg*0.3576+bb*0.1805)/0.95047;
+      const y = (rr*0.2126+gg*0.7152+bb*0.0722)/1.0;
+      const z = (rr*0.0193+gg*0.1192+bb*0.9505)/1.08883;
+      const f = t => t>0.008856 ? Math.cbrt(t) : (7.787*t)+16/116;
+      return [116*f(y)-16, 500*(f(x)-f(y)), 200*(f(y)-f(z))];
+    }
+
+    function deltaE(lab1, lab2) {
+      return Math.sqrt((lab1[0]-lab2[0])**2 + (lab1[1]-lab2[1])**2 + (lab1[2]-lab2[2])**2);
+    }
+
+    function updateBars() {
+      if (!targetRGB || !currentRGB) return;
+      const labT = rgbToLab(...targetRGB);
+      const labC = rgbToLab(...currentRGB);
+      const de = deltaE(labT, labC);
+      const sim = Math.max(0, Math.min(100, 100 - de * 2));
+      document.getElementById('barSim').style.width = sim + '%';
+      document.getElementById('valSim').textContent = Math.round(sim) + '%';
+
+      const tC = 1 - targetRGB[0]/255, tM = 1 - targetRGB[1]/255, tY = 1 - targetRGB[2]/255;
+      const cC = 1 - currentRGB[0]/255, cM = 1 - currentRGB[1]/255, cY = 1 - currentRGB[2]/255;
+      const dC = Math.max(0, tC - cC) * 100;
+      const dM = Math.max(0, tM - cM) * 100;
+      const dY = Math.max(0, tY - cY) * 100;
+
+      document.getElementById('barCyan').style.width = dC + '%';
+      document.getElementById('valCyan').textContent = Math.round(dC) + '%';
+      document.getElementById('barMagenta').style.width = dM + '%';
+      document.getElementById('valMagenta').textContent = Math.round(dM) + '%';
+      document.getElementById('barYellow').style.width = dY + '%';
+      document.getElementById('valYellow').textContent = Math.round(dY) + '%';
+
+      return { sim: Math.round(sim), dC: Math.round(dC), dM: Math.round(dM), dY: Math.round(dY) };
+    }
+
+    function speak(text) {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function speakResult(data) {
+      let msg = `相似度${data.sim}%。`;
+      let needs = [];
+      if (data.dC > 5) needs.push(`青色约${data.dC}%`);
+      if (data.dM > 5) needs.push(`品红约${data.dM}%`);
+      if (data.dY > 5) needs.push(`黄色约${data.dY}%`);
+      if (needs.length === 0) {
+        msg += '颜色已经非常接近，无需再调。';
+      } else {
+        msg += '建议添加：' + needs.join('，') + '。';
+      }
+      speak(msg);
+    }
+
+    function lockTarget() {
+      if (video.videoWidth === 0) return;
+      targetRGB = sampleColorFromVideo();
+      targetCanvas.width = video.videoWidth;
+      targetCanvas.height = video.videoHeight;
+      targetCtx.drawImage(video, 0, 0);
+      if (currentRGB) updateBars();
+    }
+
+    function compareCurrent() {
+      currentRGB = sampleColorFromVideo();
+      const data = updateBars();
+      if (data) speakResult(data);
+    }
+
+    document.getElementById('btnLock').addEventListener('click', lockTarget);
+   W document.getElementById('btnCompare').addEventListener('click', compareCurrent);
+  </script>
+</body>
+</html>
