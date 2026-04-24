@@ -221,6 +221,7 @@
     let currentRGB = null;
 
     async function startCamera() {
+      await navigator.mediaDevices.getUserMedia({ video: true }); // 强制提前请求权限
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
@@ -238,7 +239,6 @@
       sampleCanvas.height = video.videoHeight;
       sampleCtx.drawImage(video, 0, 0);
       const size = 50;
-      const cx = sampleCanvas.width / 2;
       const cy = sampleCanvas.height / 2;
       const img = sampleCtx.getImageData(cx - size/2, cy - size/2, size, size);
       let r = 0, g = 0, b = 0;
